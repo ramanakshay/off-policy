@@ -1,0 +1,29 @@
+system:
+    device: cuda
+
+environment:
+    name: Pendulum-v1
+    max_ep_steps: 200
+
+buffer:
+    capacity: 100000
+    batch_size: 100
+
+agent:
+    hidden_dims: [512, 300]
+    act_noise: 0.1
+    gamma: 0.99
+    tau: 0.005
+    optimizer:
+        actor_lr: 1e-4
+        critic_lr: 1e-3
+
+trainer:
+    total_steps: 200000
+    random_steps: 100
+    train_start: 100
+    train_interval: 1
+    train_iters: 1
+    eval_interval: 2000
+    evaluator:
+        eval_episodes: 5
