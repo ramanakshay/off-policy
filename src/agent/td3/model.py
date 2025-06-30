@@ -100,7 +100,7 @@ class TD3Agent:
         # Policy and target updates
         if next(self.update_policy):
             actor_loss = self._train_actor(obs)
+            loss["actor"] = actor_loss
             self._train_targets()
 
-        loss = {"actor": actor_loss, "critic": critic_loss}
         return loss
