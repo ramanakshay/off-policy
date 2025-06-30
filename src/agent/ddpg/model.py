@@ -36,26 +36,26 @@ class DDPGAgent:
             action = action.clip(-self.act_lim, +self.act_lim)
         return action
 
-    def _update_critic(self, obs, act, next_obs, rew, done):
+    def _train_critic(self, obs, act, next_obs, rew, done):
         with torch.no_grad():
             next_act = self.target_actor(next_obs)
             next_q = self.target_critic(next_obs, next_act)
             q_target = rew + ~done * self.config.gamma * next_q
         q = self.critic(obs, act)
         critic_loss = F.mse_loss(q, q_target)
-        self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
+        self.critic_optimizer.zero_grad()
         return critic_loss.item()
 
-    def _update_actor(self, obs):
+    def _train_actor(self, obs):
         actor_loss = -self.critic(obs, self.actor(obs)).mean()
-        self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
+        self.actor_optimizer.zero_grad()
         return actor_loss.item()
 
-    def _update_targets(self):
+    def _train_targets(self):
         for param, target_param in zip(
             self.actor.parameters(), self.target_actor.parameters()
         ):
@@ -69,7 +69,7 @@ class DDPGAgent:
                 self.config.tau * param.data + (1 - self.config.tau) * target_param.data
             )
 
-    def update(self, batch):
+    def train(self, batch):
         for key in batch:
             batch[key] = torch.from_numpy(batch[key]).to(self.device)
 
@@ -81,8 +81,9 @@ class DDPGAgent:
             batch["done"],
         )
 
-        critic_loss = self._update_critic(obs, act, next_obs, rew, done)
-        actor_loss = self._update_actor(obs)
-        self._update_targets()
+        actor_loss = self._train_actor(obs)
+        critic_loss = self._train_critic(obs, act, next_obs, rew, done)
+        self._train_targets()
 
-        return actor_loss, critic_loss
+        loss = {"actor": actor_loss, "critic": critic_loss}
+        return loss

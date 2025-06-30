@@ -41,7 +41,7 @@ class TD3Agent:
             action = action.clip(-self.act_lim, +self.act_lim)
         return action
 
-    def _update_critic(self, obs, act, next_obs, rew, done):
+    def _train_critic(self, obs, act, next_obs, rew, done):
         with torch.no_grad():
             next_act = self.target_actor(next_obs)
             # Add target policy smoothing:
@@ -56,19 +56,19 @@ class TD3Agent:
             q_target = rew + ~done * self.config.gamma * next_q
         q1, q2 = self.critic(obs, act)
         critic_loss = F.mse_loss(q1, q_target) + F.mse_loss(q2, q_target)
-        self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
+        self.critic_optimizer.zero_grad()
         return critic_loss.item()
 
-    def _update_actor(self, obs):
+    def _train_actor(self, obs):
         actor_loss = -self.critic.critic1(obs, self.actor(obs)).mean()
-        self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
+        self.actor_optimizer.zero_grad()
         return actor_loss.item()
 
-    def _update_targets(self):
+    def _train_targets(self):
         for param, target_param in zip(
             self.actor.parameters(), self.target_actor.parameters()
         ):
@@ -82,7 +82,7 @@ class TD3Agent:
                 self.config.tau * param.data + (1 - self.config.tau) * target_param.data
             )
 
-    def update(self, batch):
+    def train(self, batch):
         for key in batch:
             batch[key] = torch.from_numpy(batch[key]).to(self.device)
 
@@ -94,11 +94,13 @@ class TD3Agent:
             batch["done"],
         )
 
-        critic_loss = self._update_critic(obs, act, next_obs, rew, done)
-        actor_loss = None
+        loss = {}
+        critic_loss = self._train_critic(obs, act, next_obs, rew, done)
+        loss["critic"] = critic_loss
         # Policy and target updates
         if next(self.update_policy):
-            actor_loss = self._update_actor(obs)
-            self._update_targets()
+            actor_loss = self._train_actor(obs)
+            self._train_targets()
 
-        return actor_loss, critic_loss
+        loss = {"actor": actor_loss, "critic": critic_loss}
+        return loss

@@ -57,7 +57,7 @@ class SACAgent:
         logprob = logprob.sum(1, keepdim=True)
         return act, logprob
 
-    def _update_critic(self, obs, act, next_obs, rew, done):
+    def _train_critic(self, obs, act, next_obs, rew, done):
         with torch.no_grad():
             next_act, next_logprob = self._calculate_action_logprob(next_obs)
             next_q1, next_q2 = self.target_critic(next_obs, next_act)
@@ -65,31 +65,31 @@ class SACAgent:
             q_target = rew + ~done * self.config.gamma * next_q
         q1, q2 = self.critic(obs, act)
         critic_loss = F.mse_loss(q1, q_target) + F.mse_loss(q2, q_target)
-        self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
+        self.critic_optimizer.zero_grad()
         return critic_loss.item()
 
-    def _update_alpha(self, obs):
+    def _train_alpha(self, obs):
         _, logprob = self._calculate_action_logprob(obs)
         alpha_loss = (-self.log_alpha.exp() * (logprob + self.target_entropy)).mean()
-        self.alpha_optimizer.zero_grad()
         alpha_loss.backward()
         self.alpha_optimizer.step()
+        self.alpha_optimizer.zero_grad()
         self.alpha = self.log_alpha.exp().item()
         return alpha_loss.item()
 
-    def _update_actor(self, obs):
+    def _train_actor(self, obs):
         act, logprob = self._calculate_action_logprob(obs)
         q1, q2 = self.critic(obs, act)
         q = torch.min(q1, q2)
         actor_loss = (self.alpha * logprob - q).mean()
-        self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
+        self.actor_optimizer.zero_grad()
         return actor_loss.item()
 
-    def _update_targets(self):
+    def _train_targets(self):
         for param, target_param in zip(
             self.actor.parameters(), self.target_actor.parameters()
         ):
@@ -103,7 +103,7 @@ class SACAgent:
                 self.config.tau * param.data + (1 - self.config.tau) * target_param.data
             )
 
-    def update(self, batch):
+    def train(self, batch):
         for key in batch:
             batch[key] = torch.from_numpy(batch[key]).to(self.device)
 
@@ -115,9 +115,10 @@ class SACAgent:
             batch["done"],
         )
 
-        critic_loss = self._update_critic(obs, act, next_obs, rew, done)
-        actor_loss = self._update_actor(obs)
-        alpha_loss = self._update_alpha(obs)
-        self._update_targets()
+        critic_loss = self._train_critic(obs, act, next_obs, rew, done)
+        actor_loss = self._train_actor(obs)
+        alpha_loss = self._train_alpha(obs)
+        self._train_targets()
 
-        return actor_loss, critic_loss
+        loss = {"actor": actor_loss, "critic": critic_loss, "alpha": alpha_loss}
+        return loss

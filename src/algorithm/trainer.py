@@ -41,7 +41,7 @@ class OffPolicyRLTrainer:
             ):
                 for iter in range(self.config.train_iters):
                     batch = self.buffer.sample()
-                    self.agent.update(batch)
+                    self.agent.train(batch)
 
             if step % self.config.eval_interval == 0:
                 print(f"Step : {step}, Evaluating agent")
