@@ -1,4 +1,3 @@
-import torch
 from gymnasium.wrappers import RecordEpisodeStatistics
 
 
@@ -6,16 +5,17 @@ class Evaluator:
     def __init__(self, env, agent, config):
         self.agent = agent
         self.config = config
-        self.env = RecordEpisodeStatistics(
-            env.env, buffer_length=self.config.eval_episodes
-        )
+        self.env = env
 
     def run(self):
+        env = RecordEpisodeStatistics(
+            self.env.env, buffer_length=self.config.eval_episodes
+        )
         for _ in range(self.config.eval_episodes):
-            obs, info = self.env.reset()
+            obs, info = env.reset()
             while True:
                 act = self.agent.act(obs)
-                obs, reward, terminated, truncated, info = self.env.step(act)
+                obs, reward, terminated, truncated, info = env.step(act)
                 done = terminated or truncated
                 if done:
                     break

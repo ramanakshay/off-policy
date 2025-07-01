@@ -1,25 +1,24 @@
-import torch
-from tqdm import tqdm
 from algorithm.evaluator import Evaluator
 
 
 class OffPolicyRLTrainer:
     def __init__(self, env, buffer, agent, config):
         self.config = config
-        self.env = env.env
+        self.env = env
         self.agent = agent
         self.buffer = buffer
         self.evaluator = Evaluator(env, agent, config.evaluator)
 
     def run(self):
+        env = self.env.env
         print(f"Total Steps = {self.config.total_steps}")
-        obs, info = self.env.reset()
+        obs, info = env.reset()
         for step in range(self.config.total_steps):
             if step < self.config.random_steps:
                 act = self.env.action_space.sample()
             else:
                 act = self.agent.act(obs, deterministic=False)
-            next_obs, reward, terminated, truncated, info = self.env.step(act)
+            next_obs, reward, terminated, truncated, info = env.step(act)
             done = terminated or truncated
             self.buffer.insert(
                 dict(
@@ -31,7 +30,7 @@ class OffPolicyRLTrainer:
                 )
             )
             if done:
-                obs, info = self.env.reset()
+                obs, info = env.reset()
             else:
                 obs = next_obs
 
