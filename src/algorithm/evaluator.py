@@ -20,8 +20,8 @@ class Evaluator:
                 if done:
                     break
 
-        avg_return = sum(list(self.env.return_queue)) / len(self.env.return_queue)
-        avg_length = sum(list(self.env.length_queue)) / len(self.env.length_queue)
+        avg_return = sum(list(env.return_queue)) / len(env.return_queue)
+        avg_length = sum(list(env.length_queue)) / len(env.length_queue)
         print(f"Evaluation over {self.config.eval_episodes} episodes:")
         print(f"Average Return: {avg_return:.2f}")
         print(f"Average Length: {avg_length:.2f}")
